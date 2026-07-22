@@ -15,7 +15,7 @@ async function handleChatSubmit(e) {
 }
 
 async function triggerQuickAction(actionType, label) {
-    appendMessage("user", `Action: ${label}`);
+    appendMessage("user", label);
     await sendToAgentBot(label, actionType);
 
     // Close mobile sidebar if open
@@ -60,15 +60,23 @@ function appendMessage(sender, text) {
     msg.className = `message ${sender === 'user' ? 'user-message' : 'bot-message'}`;
 
     const avatar = sender === 'user' ? '👤' : '🤖';
-    const title = sender === 'user' ? 'You' : 'Contact Agent Bot';
 
-    msg.innerHTML = `
-        <div class="avatar">${avatar}</div>
-        <div class="message-content">
-            <strong>${title}</strong>
-            <p>${formatMarkdownText(text)}</p>
-        </div>
-    `;
+    if (sender === 'user') {
+        msg.innerHTML = `
+            <div class="message-content">
+                <p>${formatMarkdownText(text)}</p>
+            </div>
+            <div class="avatar">${avatar}</div>
+        `;
+    } else {
+        msg.innerHTML = `
+            <div class="avatar">${avatar}</div>
+            <div class="message-content">
+                <div class="message-header">Contact Agent Bot</div>
+                <p>${formatMarkdownText(text)}</p>
+            </div>
+        `;
+    }
 
     chatContainer.appendChild(msg);
     chatContainer.scrollTop = chatContainer.scrollHeight;
@@ -83,7 +91,7 @@ function appendLoadingMessage() {
     msg.innerHTML = `
         <div class="avatar">🤖</div>
         <div class="message-content">
-            <strong>Contact Agent Bot</strong>
+            <div class="message-header">Contact Agent Bot</div>
             <p style="color: var(--text-muted);">Thinking & connecting to Platform API...</p>
         </div>
     `;
@@ -103,7 +111,6 @@ function toggleMobileMenu() {
 
 function formatMarkdownText(text) {
     if (!text) return '';
-    // Basic Markdown Formatting
     let formatted = text
         .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
         .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
