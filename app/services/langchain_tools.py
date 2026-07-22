@@ -31,6 +31,26 @@ async def list_contacts_tool(
     return json.dumps(contacts)
 
 @tool
+async def get_unique_companies_tool() -> str:
+    """
+    Retrieve a directory of unique companies stored in the platform, along with the contact count and member list for each organization.
+    """
+    contacts = await platform_client.get_all_contacts()
+    companies_map: Dict[str, List[str]] = {}
+    for c in contacts:
+        company_name = c.get("company")
+        if company_name:
+            if company_name not in companies_map:
+                companies_map[company_name] = []
+            companies_map[company_name].append(c["name"])
+
+    result = [
+        {"company": comp, "contact_count": len(members), "members": members}
+        for comp, members in companies_map.items()
+    ]
+    return json.dumps(result)
+
+@tool
 async def get_platform_stats_tool() -> str:
     """
     Retrieve platform analytics statistics (total contacts, companies, work vs. personal counts).
@@ -113,6 +133,7 @@ async def delete_contact_tool(contact_id: str) -> str:
 
 ALL_TOOLS = [
     list_contacts_tool,
+    get_unique_companies_tool,
     get_platform_stats_tool,
     validate_contact_emails_tool,
     create_contact_tool,
