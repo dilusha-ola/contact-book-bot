@@ -1,1 +1,96 @@
-<!-- ChatGPT-Style Agent Bot UI -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Contact Book Agent Bot - ChatGPT Assistant</title>
+    <link rel="stylesheet" href="/css/style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="app-layout">
+        <!-- Top Navbar (Mobile View) -->
+        <header class="mobile-navbar">
+            <div class="brand">
+                <span class="brand-icon">🤖</span>
+                <h2>Contact Agent Bot</h2>
+            </div>
+            <button class="hamburger-btn" onclick="toggleMobileMenu()">☰</button>
+        </header>
+
+        <!-- Sidebar Navigation -->
+        <aside class="sidebar" id="sidebar">
+            <div class="brand desktop-only">
+                <span class="brand-icon">🤖</span>
+                <h2>Contact Agent Bot</h2>
+            </div>
+            
+            <div class="sidebar-section">
+                <h3>Quick Agent Tools</h3>
+                <p class="text-muted">Click to dispatch quick tool actions to the Platform</p>
+                <div class="tool-list">
+                    <button class="tool-btn" onclick="triggerQuickAction('search', 'Show all contacts')">
+                        <span class="tool-icon">🔍</span>
+                        <div class="tool-info">
+                            <strong>Search Contacts</strong>
+                            <small>Find contacts by name/company</small>
+                        </div>
+                    </button>
+                    <button class="tool-btn" onclick="triggerQuickAction('validate', 'Validate email formats')">
+                        <span class="tool-icon">✉️</span>
+                        <div class="tool-info">
+                            <strong>Validate Emails</strong>
+                            <small>Scan for invalid email formats</small>
+                        </div>
+                    </button>
+                    <button class="tool-btn" onclick="triggerQuickAction('stats', 'Show category breakdown')">
+                        <span class="tool-icon">📊</span>
+                        <div class="tool-info">
+                            <strong>Category Stats</strong>
+                            <small>View Work vs Personal totals</small>
+                        </div>
+                    </button>
+                </div>
+            </div>
+
+            <div class="sidebar-footer">
+                <p>Bot Port: 8001 → Platform: 8000</p>
+                <span class="badge badge-online">Connected</span>
+            </div>
+        </aside>
+
+        <!-- Main Chat Area -->
+        <main class="main-content">
+            <header class="top-header">
+                <h1>Contact Assistant Bot</h1>
+                <div class="header-status">
+                    <span class="status-dot"></span> Port 8001 (Agent Active)
+                </div>
+            </header>
+
+            <div class="chat-container card">
+                <!-- Chat Messages Stream -->
+                <div class="chat-messages" id="chat-messages">
+                    <div class="message bot-message">
+                        <div class="avatar">🤖</div>
+                        <div class="message-content">
+                            <strong>Contact Agent Bot</strong>
+                            <p>Hello! I am your Contact Assistant Bot connected to your Platform API. Type a prompt below like <em>"Find contacts at decryptogen"</em> or click a tool from the sidebar!</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Chat Input Bar -->
+                <div class="chat-input-container">
+                    <form class="chat-input-form" onsubmit="handleChatSubmit(event)">
+                        <input type="text" id="chat-input" placeholder="Type your message to the agent... (e.g., Who is Nimal?)" autocomplete="off">
+                        <button type="submit" class="btn btn-primary">Send</button>
+                    </form>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script src="/js/app.js"></script>
+</body>
+</html>
