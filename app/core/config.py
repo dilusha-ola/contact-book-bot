@@ -12,7 +12,7 @@ class Settings(BaseSettings):
     # LLM Settings
     LLM_PROVIDER: str = "groq"
     LLM_MODEL: str = "llama-3.3-70b-versatile"
-    GROQ_API_KEY: str = ""
+    GROQ_API_KEY: str = "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"
     OPENAI_API_KEY: str = ""
     GOOGLE_API_KEY: str = ""
 
