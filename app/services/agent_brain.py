@@ -11,23 +11,40 @@ logger = logging.getLogger("uvicorn")
 
 def extract_fields(prompt: str) -> Dict[str, str]:
     fields = {}
-    # 1. Extract explicit assignments (e.g. name = John Doe, email = john@gmail.com, location: Colombo)
+    
+    # 1. Extract explicit key = val or key: val assignments
     for match in re.finditer(r"(name|email|company_email|phone|location|notes)\s*[:=]\s*([^,\n;]+)", prompt, re.I):
         k = match.group(1).lower()
         v = match.group(2).strip()
-        fields[k] = v
+        # Clean trailing keywords if attached in raw string (e.g., 'new phone')
+        v_clean = re.split(r"\b(new\s+phone|phone|email|company_email|location|notes|name)\b", v, flags=re.I)[0].strip()
+        fields[k] = v_clean or v
 
-    # 2. Extract email if not set via assignment
-    if "email" not in fields and "company_email" not in fields:
-        email_match = re.search(r"[\w\.-]+@[\w\.-]+\.\w+", prompt)
-        if email_match:
+    # 2. Extract target email if present in text
+    email_match = re.search(r"[\w\.-]+@[\w\.-]+\.\w+", prompt)
+    if email_match:
+        fields["target_email"] = email_match.group(0)
+        if "email" not in fields:
             fields["email"] = email_match.group(0)
 
-    # 3. Extract phone if not set via assignment
-    if "phone" not in fields:
-        phone_match = re.search(r"(\+?\d{9,13})", prompt)
-        if phone_match:
-            fields["phone"] = phone_match.group(0)
+    # 3. Extract phone / new phone number
+    phone_match = re.search(r"(?:new\s+phone\s*(?:number)?|phone)\s*[:=]?\s*(\+?\d{9,13})", prompt, re.I)
+    if phone_match:
+        fields["new_phone"] = phone_match.group(1).strip()
+        fields["phone"] = phone_match.group(1).strip()
+    elif "phone" not in fields:
+        gen_phone = re.search(r"(\+?\d{9,13})", prompt)
+        if gen_phone:
+            fields["phone"] = gen_phone.group(0)
+
+    # 4. Extract name assignment (e.g. name = perera)
+    name_match = re.search(r"name\s*[:=]\s*([a-zA-Z0-9\s]+)", prompt, re.I)
+    if name_match:
+        raw_name = name_match.group(1).strip()
+        clean_name = re.split(r"\b(new|phone|email|company_email|location|notes)\b", raw_name, flags=re.I)[0].strip()
+        if clean_name:
+            fields["name"] = clean_name
+            fields["target_name"] = clean_name
 
     return fields
 
@@ -38,7 +55,6 @@ class AgentBrain:
 
     def _init_llm_agent(self):
         try:
-                    # pyrefly: ignore [missing-import]
             api_key = settings.GROQ_API_KEY or settings.OPENAI_API_KEY or settings.GOOGLE_API_KEY
             if not api_key:
                 logger.warning("No LLM API key provided. Agent running in fallback rule-based mode.")
@@ -123,8 +139,52 @@ class AgentBrain:
         fields = extract_fields(prompt)
         is_company = "company" in p
 
-        # 1. CREATE Handling (Supports natural language and assignment format)
-        if "create" in p or "add" in p or "insert" in p or "new" in p:
+        # Out-of-Domain Guardrail Check (only for explicit non-contact subjects)
+        out_of_domain_keywords = ["cricket", "cancer", "vehicle", "vehicles", "brand", "brands", "weather", "recipe", "movie", "capital of", "football", "basketball"]
+        if any(k in p for k in out_of_domain_keywords):
+            return {
+                "reply": "I am specialized strictly as a Contact Book Assistant. I can only assist with managing personal contacts, company contacts, and contact platform statistics. Please ask a contact-related question!",
+                "action_type": "out_of_domain",
+                "data": None
+            }
+
+        # 1. UPDATE Handling (Highest Priority when 'update', 'edit', 'change', 'modify' is in prompt)
+        if "update" in p or "edit" in p or "change" in p or "modify" in p:
+            search_query = fields.get("target_email") or fields.get("target_name") or fields.get("email") or fields.get("name") or prompt
+            clean_search = re.sub(r"\b(update|the|personal|company|contact|phone|number|for|given|details|new|to|with)\b", "", str(search_query), flags=re.I).replace("=", "").replace(":", "").strip()
+
+            if is_company:
+                companies = await platform_client.get_all_companies(query=clean_search or search_query)
+                if companies:
+                    target = companies[0]
+                    update_payload = {}
+                    if fields.get("name") and fields["name"] != target["name"]: update_payload["name"] = fields["name"]
+                    if fields.get("email") and fields["email"] != target["company_email"]: update_payload["company_email"] = fields["email"]
+                    if fields.get("phone"): update_payload["phone"] = fields["phone"]
+                    if fields.get("location"): update_payload["location"] = fields["location"]
+
+                    res = await platform_client.update_company(target["id"], **update_payload)
+                    if res:
+                        return {"reply": f"Company contact 🏢 **{res['name']}** (`{res['company_email']}`) has been updated successfully with new phone `{res['phone']}`.", "action_type": "update", "data": res}
+            else:
+                contacts = await platform_client.get_all_contacts(query=clean_search or search_query)
+                if not contacts and fields.get("target_email"):
+                    contacts = await platform_client.get_all_contacts(email=fields["target_email"])
+                if contacts:
+                    target = contacts[0]
+                    update_payload = {}
+                    if fields.get("phone"): update_payload["phone"] = fields["phone"]
+                    if fields.get("name") and fields["name"].lower() != target["name"].lower(): update_payload["name"] = fields["name"]
+                    if fields.get("email") and fields["email"].lower() != target["email"].lower(): update_payload["email"] = fields["email"]
+
+                    res = await platform_client.update_contact(target["id"], **update_payload)
+                    if res:
+                        return {"reply": f"Personal contact 👤 **{res['name']}** (`{res['email']}`) has been updated successfully.", "action_type": "update", "data": res}
+
+                return {"reply": f"No contact entry found for **{clean_search or search_query}** in your Contact Book to update.", "action_type": "update", "data": None}
+
+        # 2. CREATE Handling (ONLY if NOT an update request)
+        if ("create" in p or "add" in p or "insert" in p or "new contact" in p or "new company" in p) and not ("update" in p or "edit" in p or "change" in p):
             if is_company:
                 name = fields.get("name") or fields.get("location") or "New Company"
                 comp_email = fields.get("company_email") or fields.get("email") or "info@company.com"
@@ -141,37 +201,9 @@ class AgentBrain:
                 if res:
                     return {"reply": f"Personal contact 👤 **{res['name']}** (`{res['email']}`) has been created successfully.", "action_type": "create", "data": res}
 
-        # 2. UPDATE Handling
-        if "update" in p or "edit" in p or "change" in p or "modify" in p:
-            query = fields.get("email") or fields.get("name") or prompt
-            if is_company:
-                companies = await platform_client.get_all_companies(query=query)
-                if companies:
-                    target_id = companies[0]["id"]
-                    update_payload = {}
-                    if "name" in fields: update_payload["name"] = fields["name"]
-                    if "email" in fields: update_payload["company_email"] = fields["email"]
-                    if "company_email" in fields: update_payload["company_email"] = fields["company_email"]
-                    if "phone" in fields: update_payload["phone"] = fields["phone"]
-                    if "location" in fields: update_payload["location"] = fields["location"]
-                    res = await platform_client.update_company(target_id, **update_payload)
-                    if res:
-                        return {"reply": f"Company contact 🏢 **{res['name']}** (`{res['company_email']}`) has been updated successfully.", "action_type": "update", "data": res}
-            else:
-                contacts = await platform_client.get_all_contacts(query=query)
-                if contacts:
-                    target_id = contacts[0]["id"]
-                    update_payload = {}
-                    if "name" in fields: update_payload["name"] = fields["name"]
-                    if "email" in fields: update_payload["email"] = fields["email"]
-                    if "phone" in fields: update_payload["phone"] = fields["phone"]
-                    res = await platform_client.update_contact(target_id, **update_payload)
-                    if res:
-                        return {"reply": f"Personal contact 👤 **{res['name']}** (`{res['email']}`) has been updated successfully.", "action_type": "update", "data": res}
-
-        # 3. DELETE Handling (Supports natural language and assignment format)
+        # 3. DELETE Handling
         if "delete" in p or "remove" in p:
-            search_query = fields.get("email") or fields.get("name") or prompt
+            search_query = fields.get("target_email") or fields.get("target_name") or fields.get("email") or fields.get("name") or prompt
             if is_company:
                 companies = await platform_client.get_all_companies(query=search_query)
                 if companies:
@@ -181,8 +213,8 @@ class AgentBrain:
                         return {"reply": f"The company contact 🏢 with name **{c['name']}** and email `{c['company_email']}` has been successfully deleted.", "action_type": "delete", "data": c}
             else:
                 contacts = await platform_client.get_all_contacts(query=search_query)
-                if not contacts and fields.get("email"):
-                    contacts = await platform_client.get_all_contacts(email=fields["email"])
+                if not contacts and fields.get("target_email"):
+                    contacts = await platform_client.get_all_contacts(email=fields["target_email"])
                 if contacts:
                     c = contacts[0]
                     del_ok = await platform_client.delete_contact(c["id"])
@@ -190,7 +222,7 @@ class AgentBrain:
                         return {"reply": f"The personal contact 👤 with name **{c['name']}** and email `{c['email']}` has been successfully deleted.", "action_type": "delete", "data": c}
             return {"reply": "No matching contact found to delete.", "action_type": "delete", "data": None}
 
-        # 4. STATS & SEARCH Handling
+        # 4. STATS & UNIFIED SEARCH Handling
         if action == "stats" or "stat" in p or "summary" in p or "how many" in p or "breakdown" in p:
             stats = await platform_client.get_stats()
             reply = f"📊 **Contact Platform Statistics:**\n" \
@@ -198,12 +230,23 @@ class AgentBrain:
                     f"• Total Company Contacts: **{stats.get('total_companies', 0)}**"
             return {"reply": reply, "action_type": "stats", "data": stats}
 
-        contacts = await platform_client.get_all_contacts(query=prompt)
-        if contacts:
-            summary_lines = [f"• 👤 **{c['name']}** — 📧 `{c['email']}` | 📞 `{c['phone']}`" for c in contacts]
-            reply = f"Found **{len(contacts)}** contact(s):\n\n" + "\n".join(summary_lines)
-            return {"reply": reply, "action_type": "search", "data": contacts}
+        clean_query = prompt.replace("give me contact details of", "").replace("what is", "").replace("who is", "").replace("details of", "").replace("company", "").strip()
+        search_term = clean_query or prompt
 
-        return {"reply": "No matching contacts found.", "action_type": "search", "data": []}
+        companies = await platform_client.get_all_companies(query=search_term)
+        contacts = await platform_client.get_all_contacts(query=search_term)
+
+        if companies or contacts:
+            lines = []
+            if contacts:
+                lines.append("👤 **Personal Contacts:**")
+                lines.extend([f"• **{c['name']}** — 📧 `{c['email']}` | 📞 `{c['phone']}`" for c in contacts])
+            if companies:
+                if lines: lines.append("")
+                lines.append("🏢 **Company Contacts:**")
+                lines.extend([f"• **{c['name']}** ({c['location']}) — 📧 `{c['company_email']}` | 📞 `{c['phone']}`" for c in companies])
+            return {"reply": "\n".join(lines), "action_type": "search", "data": {"contacts": contacts, "companies": companies}}
+
+        return {"reply": f"No contact entry found for **{search_term}** in your Contact Book. Would you like me to add them as a new contact?", "action_type": "search", "data": []}
 
 agent_brain = AgentBrain()
