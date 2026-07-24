@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Contact Book Agent Bot - ChatGPT Assistant</title>
-    <link rel="stylesheet" href="/css/style.css?v=20260724_2">
+    <link rel="stylesheet" href="/css/style.css?v=20260724_3">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 </head>
 <body>
@@ -18,44 +18,40 @@
             <button class="hamburger-btn" onclick="toggleMobileMenu()">☰</button>
         </header>
 
-        <!-- Sidebar Navigation -->
-        <aside class="sidebar" id="sidebar">
+        <!-- Left Sidebar (Chat History & New Chat) -->
+        <aside class="sidebar sidebar-left" id="sidebar-left">
             <div class="brand desktop-only">
                 <span class="brand-icon">🤖</span>
                 <h2>Contact Agent Bot</h2>
             </div>
+
+            <button class="btn btn-primary btn-new-chat" onclick="createNewChatSession()">
+                <span class="plus-icon">+</span> New Chat
+            </button>
             
-            <div class="sidebar-section">
-                <h3>Quick Agent Tools</h3>
-                <p class="text-muted">Click to dispatch quick tool actions to the Platform</p>
-                <div class="tool-list">
-                    <button class="tool-btn" onclick="triggerQuickAction('search', 'Show all contacts')">
-                        <span class="tool-icon">👥</span>
-                        <div class="tool-info">
-                            <strong>All Contacts</strong>
-                            <small>List all contacts in platform</small>
+            <div class="sidebar-section history-section">
+                <h3>Recent Chats</h3>
+                <div class="chat-history-list" id="chat-history-list">
+                    <!-- Dynamic Chat History Items -->
+                    <div class="chat-item active" onclick="selectChatSession('current')">
+                        <span class="chat-item-icon">💬</span>
+                        <div class="chat-item-info">
+                            <span class="chat-item-title">Current Chat</span>
                         </div>
-                    </button>
-                    <button class="tool-btn" onclick="triggerQuickAction('companies', 'List all unique companies')">
-                        <span class="tool-icon">🏢</span>
-                        <div class="tool-info">
-                            <strong>Companies</strong>
-                            <small>View unique companies directory</small>
-                        </div>
-                    </button>
+                    </div>
                 </div>
             </div>
 
             <div class="sidebar-footer">
-                <p>Bot Port: 8001 → Platform: 8000</p>
-                <span class="badge badge-online">Connected</span>
+                <p>MongoDB Atlas Connected</p>
+                <span class="badge badge-online">Live</span>
             </div>
         </aside>
 
-        <!-- Main Chat Area -->
+        <!-- Center Main Content (Active Chat Area) -->
         <main class="main-content">
             <header class="top-header">
-                <h1>Contact Assistant Bot</h1>
+                <h1 id="active-chat-title">Contact Assistant Bot</h1>
                 <div class="header-status">
                     <span class="status-dot"></span> Port 8001 (Agent Active)
                 </div>
@@ -68,7 +64,7 @@
                         <div class="avatar">🤖</div>
                         <div class="message-content">
                             <strong>Contact Agent Bot</strong>
-                            <p>Hello! I am your Contact Assistant Bot connected to your Platform API. Type a prompt below like <em>"Find contacts at decryptogen"</em> or click a tool from the sidebar!</p>
+                            <p>Hello! I am your Contact Assistant Bot connected to your Platform API. Type a prompt below or select a tool from the right panel!</p>
                         </div>
                     </div>
                 </div>
@@ -82,8 +78,36 @@
                 </div>
             </div>
         </main>
+
+        <!-- Right Sidebar (Quick Agent Tools) -->
+        <aside class="sidebar sidebar-right" id="sidebar-right">
+            <div class="sidebar-section">
+                <h3>Quick Agent Tools</h3>
+                <p class="text-muted">Click to dispatch quick tool actions</p>
+                <div class="tool-list">
+                    <button class="tool-btn" onclick="triggerQuickAction('search', 'Show all contacts')">
+                        <span class="tool-icon">👥</span>
+                        <div class="tool-info">
+                            <strong>All Contacts</strong>
+                            <small>List all personal contacts</small>
+                        </div>
+                    </button>
+                    <button class="tool-btn" onclick="triggerQuickAction('companies', 'List all unique companies')">
+                        <span class="tool-icon">🏢</span>
+                        <div class="tool-info">
+                            <strong>Companies</strong>
+                            <small>View company contacts directory</small>
+                        </div>
+                    </button>
+                </div>
+            </div>
+
+            <div class="sidebar-footer">
+                <p>Bot Port: 8001 → Platform: 8000</p>
+            </div>
+        </aside>
     </div>
 
-    <script src="/js/app.js?v=20260724_2"></script>
+    <script src="/js/app.js?v=20260724_3"></script>
 </body>
 </html>

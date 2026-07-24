@@ -1,4 +1,4 @@
-/* Light Mode ChatGPT-Style Chat UI Styling */
+/* Light Mode ChatGPT-Style Chat UI Styling with 3-Panel Layout */
 :root {
     --bg-page: #f8fafc;
     --bg-surface: #ffffff;
@@ -66,23 +66,34 @@ body {
     cursor: pointer;
 }
 
-/* Sidebar */
+/* Base Sidebar Styles */
 .sidebar {
-    width: 280px;
     background: var(--bg-sidebar);
-    border-right: 1px solid var(--border-color);
     display: flex;
     flex-direction: column;
-    padding: 24px 16px;
+    padding: 20px 16px;
     transition: all 0.3s ease;
+    flex-shrink: 0;
+}
+
+/* Left Sidebar (Chat History) */
+.sidebar-left {
+    width: 260px;
+    border-right: 1px solid var(--border-color);
+}
+
+/* Right Sidebar (Quick Tools) */
+.sidebar-right {
+    width: 250px;
+    border-left: 1px solid var(--border-color);
 }
 
 .brand {
     display: flex;
     align-items: center;
     gap: 10px;
-    margin-bottom: 28px;
-    padding-left: 8px;
+    margin-bottom: 20px;
+    padding-left: 4px;
 }
 
 .brand-icon {
@@ -90,18 +101,46 @@ body {
 }
 
 .brand h2 {
-    font-size: 18px;
+    font-size: 17px;
     font-weight: 700;
     color: var(--accent-blue);
 }
 
-.sidebar-section h3 {
-    font-size: 13px;
+/* + New Chat Button */
+.btn-new-chat {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    width: 100%;
+    padding: 11px 16px;
+    margin-bottom: 20px;
+    font-size: 14px;
     font-weight: 600;
+    border-radius: var(--radius-md);
+}
+
+.plus-icon {
+    font-size: 18px;
+    font-weight: 700;
+    line-height: 1;
+}
+
+/* Chat History Section */
+.history-section {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.sidebar-section h3 {
+    font-size: 12px;
+    font-weight: 700;
     color: var(--text-secondary);
     text-transform: uppercase;
     letter-spacing: 0.5px;
-    margin-bottom: 4px;
+    margin-bottom: 8px;
 }
 
 .text-muted {
@@ -111,6 +150,52 @@ body {
     display: block;
 }
 
+.chat-history-list {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    overflow-y: auto;
+    flex: 1;
+}
+
+.chat-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 12px;
+    border-radius: var(--radius-md);
+    cursor: pointer;
+    background: transparent;
+    color: var(--text-secondary);
+    transition: all 0.2s ease;
+    border: 1px solid transparent;
+}
+
+.chat-item:hover {
+    background: var(--accent-blue-light);
+    color: var(--accent-blue);
+}
+
+.chat-item.active {
+    background: var(--accent-blue-light);
+    color: var(--accent-blue);
+    font-weight: 600;
+    border-color: #bfdbfe;
+}
+
+.chat-item-icon {
+    font-size: 16px;
+}
+
+.chat-item-title {
+    font-size: 13px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    flex: 1;
+}
+
+/* Quick Tools List */
 .tool-list {
     display: flex;
     flex-direction: column;
@@ -174,13 +259,13 @@ body {
     color: #15803d;
 }
 
-/* Main Content */
+/* Main Center Content */
 .main-content {
     flex: 1;
     display: flex;
     flex-direction: column;
-    padding: 32px;
-    width: 100%;
+    padding: 24px;
+    min-width: 0;
 }
 
 .top-header {
@@ -225,7 +310,7 @@ body {
 .chat-container {
     display: flex;
     flex-direction: column;
-    height: calc(100vh - 160px);
+    height: calc(100vh - 140px);
     min-height: 500px;
     overflow: hidden;
 }
@@ -275,7 +360,7 @@ body {
 }
 
 .message-content {
-    max-width: 75%;
+    max-width: 80%;
     padding: 10px 16px;
     border-radius: 16px;
     font-size: 14px;
@@ -362,6 +447,12 @@ body {
 }
 
 /* Responsive Media Queries */
+@media (max-width: 1024px) {
+    .sidebar-right {
+        display: none;
+    }
+}
+
 @media (max-width: 768px) {
     .desktop-only {
         display: none;
@@ -371,16 +462,16 @@ body {
         display: flex;
     }
 
-    .sidebar {
+    .sidebar-left {
         position: fixed;
         top: 60px;
-        left: -280px;
+        left: -260px;
         height: calc(100vh - 60px);
         z-index: 99;
         box-shadow: var(--shadow-md);
     }
 
-    .sidebar.open {
+    .sidebar-left.open {
         left: 0;
     }
 
@@ -394,6 +485,6 @@ body {
     }
 
     .message-content {
-        max-width: 88%;
+        max-width: 90%;
     }
 }
