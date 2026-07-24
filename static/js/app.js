@@ -1,23 +1,51 @@
 let currentSessionId = "session-" + Date.now();
-let chatSessions = [
-    { id: currentSessionId, title: "New Chat", messages: [] }
-];
+let chatSessions = [];
 
-document.addEventListener("DOMContentLoaded", () => {
+document.addEventListener("DOMContentLoaded", async () => {
     console.log("Contact Book Agent Bot UI ready.");
-    renderChatHistory();
+    await fetchChatSessions();
+    // Default to the first session if history exists
+    if (chatSessions.length > 0) {
+        selectChatSession(chatSessions[0].session_id);
+    } else {
+        createNewChatSession();
+    }
 });
 
+async function fetchChatSessions() {
+    try {
+        const res = await fetch("/api/v1/chat/sessions");
+        if (res.ok) {
+            chatSessions = await res.json();
+        }
+    } catch (err) {
+        console.error("Error loading chat sessions:", err);
+    }
+    renderChatHistory();
+}
+
 function createNewChatSession() {
-    currentSessionId = "session-" + Date.now();
-    const newSession = {
-        id: currentSessionId,
-        title: "New Chat",
-        messages: []
-    };
-    chatSessions.unshift(newSession);
+    const newSessionId = "session-" + Date.now();
+    currentSessionId = newSessionId;
     
-    // Clear chat stream UI to default welcome message
+    // Add pending new chat to top of list if not already present
+    const existing = chatSessions.find(s => s.session_id === newSessionId);
+    if (!existing) {
+        chatSessions.unshift({
+            session_id: newSessionId,
+            title: "New Chat",
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+            is_new: true
+        });
+    }
+
+    renderWelcomeMessage();
+    document.getElementById("active-chat-title").innerText = "New Chat";
+    renderChatHistory();
+}
+
+function renderWelcomeMessage() {
     const chatContainer = document.getElementById("chat-messages");
     chatContainer.innerHTML = `
         <div class="message bot-message">
@@ -28,18 +56,46 @@ function createNewChatSession() {
             </div>
         </div>
     `;
-
-    renderChatHistory();
 }
 
-function selectChatSession(sessionId) {
-    if (sessionId === 'current') return;
+async function selectChatSession(sessionId) {
     currentSessionId = sessionId;
-    const session = chatSessions.find(s => s.id === sessionId);
-    if (!session) return;
-
-    document.getElementById("active-chat-title").innerText = session.title || "Contact Assistant Bot";
     renderChatHistory();
+
+    const session = chatSessions.find(s => s.session_id === sessionId);
+    if (session) {
+        document.getElementById("active-chat-title").innerText = session.title || "Contact Assistant Bot";
+    }
+
+    // If it's an uncommitted new session with no messages yet
+    if (session && session.is_new) {
+        renderWelcomeMessage();
+        return;
+    }
+
+    try {
+        const res = await fetch(`/api/v1/chat/sessions/${sessionId}/messages`);
+        if (res.ok) {
+            const messages = await res.json();
+            renderSessionMessages(messages);
+        }
+    } catch (err) {
+        console.error("Error loading session messages:", err);
+    }
+}
+
+function renderSessionMessages(messages) {
+    const chatContainer = document.getElementById("chat-messages");
+    chatContainer.innerHTML = "";
+
+    if (!messages || messages.length === 0) {
+        renderWelcomeMessage();
+        return;
+    }
+
+    messages.forEach(msg => {
+        appendMessage(msg.role, msg.content);
+    });
 }
 
 function renderChatHistory() {
@@ -47,20 +103,80 @@ function renderChatHistory() {
     if (!listContainer) return;
 
     listContainer.innerHTML = "";
+    if (chatSessions.length === 0) {
+        listContainer.innerHTML = `<p style="color: var(--text-muted); font-size: 12px; padding: 8px;">No previous chats.</p>`;
+        return;
+    }
+
     chatSessions.forEach(session => {
         const item = document.createElement("div");
-        const isActive = session.id === currentSessionId;
+        const isActive = session.session_id === currentSessionId;
         item.className = `chat-item ${isActive ? 'active' : ''}`;
-        item.onclick = () => selectChatSession(session.id);
-
+        
         item.innerHTML = `
             <span class="chat-item-icon">💬</span>
-            <div class="chat-item-info">
+            <div class="chat-item-info" onclick="selectChatSession('${session.session_id}')">
                 <span class="chat-item-title">${escapeHtml(session.title)}</span>
+            </div>
+            <div class="chat-item-actions">
+                <button class="btn-action-icon" title="Rename Title" onclick="renameChatSession('${session.session_id}', event)">✏️</button>
+                <button class="btn-action-icon btn-delete" title="Delete Chat" onclick="deleteChatSession('${session.session_id}', event)">🗑️</button>
             </div>
         `;
         listContainer.appendChild(item);
     });
+}
+
+async function renameChatSession(sessionId, event) {
+    event.stopPropagation();
+    const session = chatSessions.find(s => s.session_id === sessionId);
+    const currentTitle = session ? session.title : "New Chat";
+    
+    const newTitle = prompt("Enter new title for this chat session:", currentTitle);
+    if (!newTitle || newTitle.trim() === "" || newTitle === currentTitle) return;
+
+    try {
+        const res = await fetch(`/api/v1/chat/sessions/${sessionId}`, {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ title: newTitle.trim() })
+        });
+        if (res.ok) {
+            await fetchChatSessions();
+            if (currentSessionId === sessionId) {
+                document.getElementById("active-chat-title").innerText = newTitle.trim();
+            }
+        } else {
+            alert("Failed to rename chat title");
+        }
+    } catch (err) {
+        console.error("Error renaming chat session:", err);
+    }
+}
+
+async function deleteChatSession(sessionId, event) {
+    event.stopPropagation();
+    if (!confirm("Are you sure you want to delete this chat session?")) return;
+
+    try {
+        const res = await fetch(`/api/v1/chat/sessions/${sessionId}`, { method: "DELETE" });
+        if (res.ok) {
+            chatSessions = chatSessions.filter(s => s.session_id !== sessionId);
+            if (currentSessionId === sessionId) {
+                if (chatSessions.length > 0) {
+                    selectChatSession(chatSessions[0].session_id);
+                } else {
+                    createNewChatSession();
+                }
+            } else {
+                renderChatHistory();
+            }
+        } else {
+            alert("Failed to delete chat session");
+        }
+    } catch (err) {
+        console.error("Error deleting session:", err);
+    }
 }
 
 async function handleChatSubmit(e) {
@@ -68,13 +184,6 @@ async function handleChatSubmit(e) {
     const input = document.getElementById("chat-input");
     const prompt = input.value.trim();
     if (!prompt) return;
-
-    // Set thread title if first message
-    const activeSession = chatSessions.find(s => s.id === currentSessionId);
-    if (activeSession && (activeSession.title === "New Chat" || !activeSession.title)) {
-        activeSession.title = prompt.length > 25 ? prompt.substring(0, 25) + "..." : prompt;
-        renderChatHistory();
-    }
 
     appendMessage("user", prompt);
     input.value = "";
@@ -86,7 +195,6 @@ async function triggerQuickAction(actionType, label) {
     appendMessage("user", label);
     await sendToAgentBot(label, actionType);
 
-    // Close mobile left sidebar if open
     const sidebarLeft = document.getElementById("sidebar-left");
     if (sidebarLeft) sidebarLeft.classList.remove("open");
 }
@@ -113,7 +221,17 @@ async function sendToAgentBot(promptText, actionType = null) {
 
         if (res.ok) {
             const data = await res.json();
+            if (data.session_id) {
+                currentSessionId = data.session_id;
+            }
             appendMessage("bot", data.reply);
+
+            // Refresh sessions list to update smart title from MongoDB
+            await fetchChatSessions();
+            const session = chatSessions.find(s => s.session_id === currentSessionId);
+            if (session) {
+                document.getElementById("active-chat-title").innerText = session.title;
+            }
         } else {
             appendMessage("bot", "⚠️ Could not communicate with Agent Server.");
         }

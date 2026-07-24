@@ -7,6 +7,7 @@ class Settings(BaseSettings):
     PLATFORM_API_URL: str = "http://localhost:8000/api/v1"
     SECRET_KEY: str = "bot_testing_secret_key_12345"
     ENVIRONMENT: str = "development"
+    MONGODB_URL: str = "mongodb+srv://dilushaolaboduwa3_db_user:LJ06yJuoG5wnNpIQ@cluster0.mcyxj4n.mongodb.net/?appName=Cluster0"
 
     # LLM Settings
     LLM_PROVIDER: str = "groq"

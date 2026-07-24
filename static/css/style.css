@@ -195,6 +195,35 @@ body {
     flex: 1;
 }
 
+.chat-item-actions {
+    display: flex;
+    gap: 4px;
+    opacity: 0;
+    transition: opacity 0.2s;
+}
+
+.chat-item:hover .chat-item-actions {
+    opacity: 1;
+}
+
+.btn-action-icon {
+    background: none;
+    border: none;
+    font-size: 13px;
+    cursor: pointer;
+    padding: 2px 4px;
+    border-radius: 4px;
+    transition: background 0.2s;
+}
+
+.btn-action-icon:hover {
+    background: #e0e7ff;
+}
+
+.btn-action-icon.btn-delete:hover {
+    background: #fee2e2;
+}
+
 /* Quick Tools List */
 .tool-list {
     display: flex;
