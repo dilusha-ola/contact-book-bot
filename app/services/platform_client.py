@@ -25,7 +25,7 @@ class PlatformClient:
             params["query"] = query
 
         try:
-            async with httpx.AsyncClient(timeout=5.0) as client:
+            async with httpx.AsyncClient(timeout=15.0) as client:
                 res = await client.get(f"{self.base_url}/contacts", params=params)
                 if res.status_code == 200:
                     return res.json()
@@ -47,7 +47,7 @@ class PlatformClient:
             payload["notes"] = notes
 
         try:
-            async with httpx.AsyncClient(timeout=5.0) as client:
+            async with httpx.AsyncClient(timeout=15.0) as client:
                 res = await client.post(f"{self.base_url}/contacts", json=payload)
                 if res.status_code in (200, 201):
                     return res.json()
@@ -71,7 +71,7 @@ class PlatformClient:
         if notes: payload["notes"] = notes
 
         try:
-            async with httpx.AsyncClient(timeout=5.0) as client:
+            async with httpx.AsyncClient(timeout=15.0) as client:
                 res = await client.put(f"{self.base_url}/contacts/{contact_id}", json=payload)
                 if res.status_code == 200:
                     return res.json()
@@ -82,7 +82,7 @@ class PlatformClient:
 
     async def delete_contact(self, contact_id: str) -> bool:
         try:
-            async with httpx.AsyncClient(timeout=5.0) as client:
+            async with httpx.AsyncClient(timeout=15.0) as client:
                 res = await client.delete(f"{self.base_url}/contacts/{contact_id}")
                 return res.status_code == 200
         except Exception as e:
@@ -104,7 +104,7 @@ class PlatformClient:
         if query: params["query"] = query
 
         try:
-            async with httpx.AsyncClient(timeout=5.0) as client:
+            async with httpx.AsyncClient(timeout=15.0) as client:
                 res = await client.get(f"{self.base_url}/companies", params=params)
                 if res.status_code == 200:
                     return res.json()
@@ -130,7 +130,7 @@ class PlatformClient:
         if notes: payload["notes"] = notes
 
         try:
-            async with httpx.AsyncClient(timeout=5.0) as client:
+            async with httpx.AsyncClient(timeout=15.0) as client:
                 res = await client.post(f"{self.base_url}/companies", json=payload)
                 if res.status_code in (200, 201):
                     return res.json()
@@ -156,7 +156,7 @@ class PlatformClient:
         if notes: payload["notes"] = notes
 
         try:
-            async with httpx.AsyncClient(timeout=5.0) as client:
+            async with httpx.AsyncClient(timeout=15.0) as client:
                 res = await client.put(f"{self.base_url}/companies/{company_id}", json=payload)
                 if res.status_code == 200:
                     return res.json()
@@ -167,7 +167,7 @@ class PlatformClient:
 
     async def delete_company(self, company_id: str) -> bool:
         try:
-            async with httpx.AsyncClient(timeout=5.0) as client:
+            async with httpx.AsyncClient(timeout=15.0) as client:
                 res = await client.delete(f"{self.base_url}/companies/{company_id}")
                 return res.status_code == 200
         except Exception as e:
@@ -176,7 +176,7 @@ class PlatformClient:
 
     async def get_stats(self) -> dict:
         try:
-            async with httpx.AsyncClient(timeout=5.0) as client:
+            async with httpx.AsyncClient(timeout=15.0) as client:
                 c_res = await client.get(f"{self.base_url}/contacts/stats")
                 comp_res = await client.get(f"{self.base_url}/companies/stats")
                 total_contacts = c_res.json().get("total_contacts", 0) if c_res.status_code == 200 else 0
