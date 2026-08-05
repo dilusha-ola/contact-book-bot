@@ -9,28 +9,26 @@ class PlatformClient:
     def __init__(self):
         self.base_url = settings.PLATFORM_API_URL.rstrip('/')
 
+    def _get_headers(self) -> dict:
+        headers = {}
+        if settings.PLATFORM_API_KEY:
+            headers["X-API-Key"] = settings.PLATFORM_API_KEY
+        return headers
+
+    # Personal Contact Operations
     async def get_all_contacts(
         self,
         name: Optional[str] = None,
         email: Optional[str] = None,
-        company: Optional[str] = None,
-        category: Optional[str] = None,
         query: Optional[str] = None
     ) -> List[dict]:
         params = {}
-        if name:
-            params["name"] = name
-        if email:
-            params["email"] = email
-        if company:
-            params["company"] = company
-        if category:
-            params["category"] = category
-        if query:
-            params["query"] = query
+        if name: params["name"] = name
+        if email: params["email"] = email
+        if query: params["query"] = query
 
         try:
-            async with httpx.AsyncClient(timeout=5.0) as client:
+            async with httpx.AsyncClient(timeout=15.0, headers=self._get_headers()) as client:
                 res = await client.get(f"{self.base_url}/contacts", params=params)
                 if res.status_code == 200:
                     return res.json()
@@ -40,44 +38,21 @@ class PlatformClient:
             logger.error(f"Failed to connect to Platform API at {self.base_url}: {e}")
             return []
 
-    async def get_contact_by_id(self, contact_id: str) -> Optional[dict]:
-        try:
-            async with httpx.AsyncClient(timeout=5.0) as client:
-                res = await client.get(f"{self.base_url}/contacts/{contact_id}")
-                if res.status_code == 200:
-                    return res.json()
-                return None
-        except Exception as e:
-            logger.error(f"Failed to fetch contact #{contact_id}: {e}")
-            return None
-
     async def create_contact(
         self,
         name: str,
         email: str,
         phone: str,
-        company: Optional[str] = None,
-        category: Optional[str] = None,
         notes: Optional[str] = None
     ) -> Optional[dict]:
-        payload = {
-            "name": name,
-            "email": email,
-            "phone": phone
-        }
-        if company:
-            payload["company"] = company
-        if category:
-            payload["category"] = category
-        if notes:
-            payload["notes"] = notes
+        payload = {"name": name, "email": email, "phone": phone}
+        if notes: payload["notes"] = notes
 
         try:
-            async with httpx.AsyncClient(timeout=5.0) as client:
+            async with httpx.AsyncClient(timeout=15.0, headers=self._get_headers()) as client:
                 res = await client.post(f"{self.base_url}/contacts", json=payload)
                 if res.status_code in (200, 201):
                     return res.json()
-                logger.error(f"Failed to create contact: {res.status_code} - {res.text}")
                 return None
         except Exception as e:
             logger.error(f"Error creating contact: {e}")
@@ -89,30 +64,19 @@ class PlatformClient:
         name: Optional[str] = None,
         email: Optional[str] = None,
         phone: Optional[str] = None,
-        company: Optional[str] = None,
-        category: Optional[str] = None,
         notes: Optional[str] = None
     ) -> Optional[dict]:
         payload = {}
-        if name is not None:
-            payload["name"] = name
-        if email is not None:
-            payload["email"] = email
-        if phone is not None:
-            payload["phone"] = phone
-        if company is not None:
-            payload["company"] = company
-        if category is not None:
-            payload["category"] = category
-        if notes is not None:
-            payload["notes"] = notes
+        if name: payload["name"] = name
+        if email: payload["email"] = email
+        if phone: payload["phone"] = phone
+        if notes: payload["notes"] = notes
 
         try:
-            async with httpx.AsyncClient(timeout=5.0) as client:
+            async with httpx.AsyncClient(timeout=15.0, headers=self._get_headers()) as client:
                 res = await client.put(f"{self.base_url}/contacts/{contact_id}", json=payload)
                 if res.status_code == 200:
                     return res.json()
-                logger.error(f"Failed to update contact #{contact_id}: {res.status_code} - {res.text}")
                 return None
         except Exception as e:
             logger.error(f"Error updating contact #{contact_id}: {e}")
@@ -120,23 +84,108 @@ class PlatformClient:
 
     async def delete_contact(self, contact_id: str) -> bool:
         try:
-            async with httpx.AsyncClient(timeout=5.0) as client:
+            async with httpx.AsyncClient(timeout=15.0, headers=self._get_headers()) as client:
                 res = await client.delete(f"{self.base_url}/contacts/{contact_id}")
                 return res.status_code == 200
         except Exception as e:
             logger.error(f"Error deleting contact #{contact_id}: {e}")
             return False
 
-    async def get_stats(self) -> dict:
+    # Company Contact Operations
+    async def get_all_companies(
+        self,
+        name: Optional[str] = None,
+        company_email: Optional[str] = None,
+        location: Optional[str] = None,
+        query: Optional[str] = None
+    ) -> List[dict]:
+        params = {}
+        if name: params["name"] = name
+        if company_email: params["company_email"] = company_email
+        if location: params["location"] = location
+        if query: params["query"] = query
+
         try:
-            async with httpx.AsyncClient(timeout=5.0) as client:
-                res = await client.get(f"{self.base_url}/contacts/stats")
+            async with httpx.AsyncClient(timeout=15.0, headers=self._get_headers()) as client:
+                res = await client.get(f"{self.base_url}/companies", params=params)
                 if res.status_code == 200:
                     return res.json()
-                return {}
+                return []
         except Exception as e:
-            logger.error(f"Failed to fetch platform stats: {e}")
-            return {}
+            logger.error(f"Failed to fetch companies: {e}")
+            return []
+
+    async def create_company(
+        self,
+        name: str,
+        company_email: str,
+        phone: str,
+        location: str,
+        notes: Optional[str] = None
+    ) -> Optional[dict]:
+        payload = {
+            "name": name,
+            "company_email": company_email,
+            "phone": phone,
+            "location": location
+        }
+        if notes: payload["notes"] = notes
+
+        try:
+            async with httpx.AsyncClient(timeout=15.0, headers=self._get_headers()) as client:
+                res = await client.post(f"{self.base_url}/companies", json=payload)
+                if res.status_code in (200, 201):
+                    return res.json()
+                return None
+        except Exception as e:
+            logger.error(f"Error creating company: {e}")
+            return None
+
+    async def update_company(
+        self,
+        company_id: str,
+        name: Optional[str] = None,
+        company_email: Optional[str] = None,
+        phone: Optional[str] = None,
+        location: Optional[str] = None,
+        notes: Optional[str] = None
+    ) -> Optional[dict]:
+        payload = {}
+        if name: payload["name"] = name
+        if company_email: payload["company_email"] = company_email
+        if phone: payload["phone"] = phone
+        if location: payload["location"] = location
+        if notes: payload["notes"] = notes
+
+        try:
+            async with httpx.AsyncClient(timeout=15.0, headers=self._get_headers()) as client:
+                res = await client.put(f"{self.base_url}/companies/{company_id}", json=payload)
+                if res.status_code == 200:
+                    return res.json()
+                return None
+        except Exception as e:
+            logger.error(f"Error updating company #{company_id}: {e}")
+            return None
+
+    async def delete_company(self, company_id: str) -> bool:
+        try:
+            async with httpx.AsyncClient(timeout=15.0, headers=self._get_headers()) as client:
+                res = await client.delete(f"{self.base_url}/companies/{company_id}")
+                return res.status_code == 200
+        except Exception as e:
+            logger.error(f"Error deleting company #{company_id}: {e}")
+            return False
+
+    async def get_stats(self) -> dict:
+        try:
+            async with httpx.AsyncClient(timeout=15.0, headers=self._get_headers()) as client:
+                c_res = await client.get(f"{self.base_url}/contacts/stats")
+                comp_res = await client.get(f"{self.base_url}/companies/stats")
+                total_contacts = c_res.json().get("total_contacts", 0) if c_res.status_code == 200 else 0
+                total_companies = comp_res.json().get("total_companies", 0) if comp_res.status_code == 200 else 0
+                return {"total_contacts": total_contacts, "total_companies": total_companies}
+        except Exception as e:
+            logger.error(f"Failed to fetch stats: {e}")
+            return {"total_contacts": 0, "total_companies": 0}
 
 platform_client = PlatformClient()
-
