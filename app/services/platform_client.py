@@ -3,11 +3,26 @@ import logging
 from typing import List, Optional
 from app.core.config import settings
 
+try:
+    # pyrefly: ignore [missing-import]
+    from mudraid import Agent
+    _HAS_MUDRAID = True
+except ImportError:
+    _HAS_MUDRAID = False
+
 logger = logging.getLogger("uvicorn")
 
 class PlatformClient:
     def __init__(self):
         self.base_url = settings.PLATFORM_API_URL.rstrip('/')
+        self.agent = None
+
+        if _HAS_MUDRAID:
+            try:
+                self.agent = Agent()
+                logger.info(f"MudraID Agent initialized successfully (Key ID: {self.agent.api_key_id})")
+            except Exception as e:
+                logger.warning(f"Could not initialize MudraID Agent ({e}). Falling back to standard HTTP calls.")
 
     def _get_headers(self) -> dict:
         headers = {}
@@ -28,12 +43,19 @@ class PlatformClient:
         if query: params["query"] = query
 
         try:
-            async with httpx.AsyncClient(timeout=15.0, headers=self._get_headers()) as client:
-                res = await client.get(f"{self.base_url}/contacts", params=params)
+            if self.agent:
+                res = self.agent.get(f"{self.base_url}/contacts", params=params)
                 if res.status_code == 200:
                     return res.json()
-                logger.error(f"Platform API error: {res.status_code} - {res.text}")
+                logger.error(f"Platform API error (MudraID Agent): {res.status_code} - {res.text}")
                 return []
+            else:
+                async with httpx.AsyncClient(timeout=15.0, headers=self._get_headers()) as client:
+                    res = await client.get(f"{self.base_url}/contacts", params=params)
+                    if res.status_code == 200:
+                        return res.json()
+                    logger.error(f"Platform API error: {res.status_code} - {res.text}")
+                    return []
         except Exception as e:
             logger.error(f"Failed to connect to Platform API at {self.base_url}: {e}")
             return []
@@ -49,11 +71,17 @@ class PlatformClient:
         if notes: payload["notes"] = notes
 
         try:
-            async with httpx.AsyncClient(timeout=15.0, headers=self._get_headers()) as client:
-                res = await client.post(f"{self.base_url}/contacts", json=payload)
+            if self.agent:
+                res = self.agent.post(f"{self.base_url}/contacts", json=payload)
                 if res.status_code in (200, 201):
                     return res.json()
                 return None
+            else:
+                async with httpx.AsyncClient(timeout=15.0, headers=self._get_headers()) as client:
+                    res = await client.post(f"{self.base_url}/contacts", json=payload)
+                    if res.status_code in (200, 201):
+                        return res.json()
+                    return None
         except Exception as e:
             logger.error(f"Error creating contact: {e}")
             return None
@@ -73,20 +101,30 @@ class PlatformClient:
         if notes: payload["notes"] = notes
 
         try:
-            async with httpx.AsyncClient(timeout=15.0, headers=self._get_headers()) as client:
-                res = await client.put(f"{self.base_url}/contacts/{contact_id}", json=payload)
+            if self.agent:
+                res = self.agent.put(f"{self.base_url}/contacts/{contact_id}", json=payload)
                 if res.status_code == 200:
                     return res.json()
                 return None
+            else:
+                async with httpx.AsyncClient(timeout=15.0, headers=self._get_headers()) as client:
+                    res = await client.put(f"{self.base_url}/contacts/{contact_id}", json=payload)
+                    if res.status_code == 200:
+                        return res.json()
+                    return None
         except Exception as e:
             logger.error(f"Error updating contact #{contact_id}: {e}")
             return None
 
     async def delete_contact(self, contact_id: str) -> bool:
         try:
-            async with httpx.AsyncClient(timeout=15.0, headers=self._get_headers()) as client:
-                res = await client.delete(f"{self.base_url}/contacts/{contact_id}")
+            if self.agent:
+                res = self.agent.delete(f"{self.base_url}/contacts/{contact_id}")
                 return res.status_code == 200
+            else:
+                async with httpx.AsyncClient(timeout=15.0, headers=self._get_headers()) as client:
+                    res = await client.delete(f"{self.base_url}/contacts/{contact_id}")
+                    return res.status_code == 200
         except Exception as e:
             logger.error(f"Error deleting contact #{contact_id}: {e}")
             return False
@@ -106,11 +144,17 @@ class PlatformClient:
         if query: params["query"] = query
 
         try:
-            async with httpx.AsyncClient(timeout=15.0, headers=self._get_headers()) as client:
-                res = await client.get(f"{self.base_url}/companies", params=params)
+            if self.agent:
+                res = self.agent.get(f"{self.base_url}/companies", params=params)
                 if res.status_code == 200:
                     return res.json()
                 return []
+            else:
+                async with httpx.AsyncClient(timeout=15.0, headers=self._get_headers()) as client:
+                    res = await client.get(f"{self.base_url}/companies", params=params)
+                    if res.status_code == 200:
+                        return res.json()
+                    return []
         except Exception as e:
             logger.error(f"Failed to fetch companies: {e}")
             return []
@@ -132,11 +176,17 @@ class PlatformClient:
         if notes: payload["notes"] = notes
 
         try:
-            async with httpx.AsyncClient(timeout=15.0, headers=self._get_headers()) as client:
-                res = await client.post(f"{self.base_url}/companies", json=payload)
+            if self.agent:
+                res = self.agent.post(f"{self.base_url}/companies", json=payload)
                 if res.status_code in (200, 201):
                     return res.json()
                 return None
+            else:
+                async with httpx.AsyncClient(timeout=15.0, headers=self._get_headers()) as client:
+                    res = await client.post(f"{self.base_url}/companies", json=payload)
+                    if res.status_code in (200, 201):
+                        return res.json()
+                    return None
         except Exception as e:
             logger.error(f"Error creating company: {e}")
             return None
@@ -158,32 +208,49 @@ class PlatformClient:
         if notes: payload["notes"] = notes
 
         try:
-            async with httpx.AsyncClient(timeout=15.0, headers=self._get_headers()) as client:
-                res = await client.put(f"{self.base_url}/companies/{company_id}", json=payload)
+            if self.agent:
+                res = self.agent.put(f"{self.base_url}/companies/{company_id}", json=payload)
                 if res.status_code == 200:
                     return res.json()
                 return None
+            else:
+                async with httpx.AsyncClient(timeout=15.0, headers=self._get_headers()) as client:
+                    res = await client.put(f"{self.base_url}/companies/{company_id}", json=payload)
+                    if res.status_code == 200:
+                        return res.json()
+                    return None
         except Exception as e:
             logger.error(f"Error updating company #{company_id}: {e}")
             return None
 
     async def delete_company(self, company_id: str) -> bool:
         try:
-            async with httpx.AsyncClient(timeout=15.0, headers=self._get_headers()) as client:
-                res = await client.delete(f"{self.base_url}/companies/{company_id}")
+            if self.agent:
+                res = self.agent.delete(f"{self.base_url}/companies/{company_id}")
                 return res.status_code == 200
+            else:
+                async with httpx.AsyncClient(timeout=15.0, headers=self._get_headers()) as client:
+                    res = await client.delete(f"{self.base_url}/companies/{company_id}")
+                    return res.status_code == 200
         except Exception as e:
             logger.error(f"Error deleting company #{company_id}: {e}")
             return False
 
     async def get_stats(self) -> dict:
         try:
-            async with httpx.AsyncClient(timeout=15.0, headers=self._get_headers()) as client:
-                c_res = await client.get(f"{self.base_url}/contacts/stats")
-                comp_res = await client.get(f"{self.base_url}/companies/stats")
+            if self.agent:
+                c_res = self.agent.get(f"{self.base_url}/contacts/stats")
+                comp_res = self.agent.get(f"{self.base_url}/companies/stats")
                 total_contacts = c_res.json().get("total_contacts", 0) if c_res.status_code == 200 else 0
                 total_companies = comp_res.json().get("total_companies", 0) if comp_res.status_code == 200 else 0
                 return {"total_contacts": total_contacts, "total_companies": total_companies}
+            else:
+                async with httpx.AsyncClient(timeout=15.0, headers=self._get_headers()) as client:
+                    c_res = await client.get(f"{self.base_url}/contacts/stats")
+                    comp_res = await client.get(f"{self.base_url}/companies/stats")
+                    total_contacts = c_res.json().get("total_contacts", 0) if c_res.status_code == 200 else 0
+                    total_companies = comp_res.json().get("total_companies", 0) if comp_res.status_code == 200 else 0
+                    return {"total_contacts": total_contacts, "total_companies": total_companies}
         except Exception as e:
             logger.error(f"Failed to fetch stats: {e}")
             return {"total_contacts": 0, "total_companies": 0}

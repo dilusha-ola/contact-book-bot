@@ -1,0 +1,56 @@
+====================================================================
+CONTACT BOOK AGENT BOT - DEPLOYMENT & CONFIGURATION SUMMARY
+====================================================================
+Date Configured: 2026-08-06
+Server IP: 13.235.48.164
+Assigned Port: 8004
+User: ubuntu
+
+1. OVERVIEW & RESPONSIBILITY:
+-----------------------------
+This service acts as the AI Agent Bot powered by LangChain and Groq LLM.
+It communicates internally with the Platform service on Port 8005.
+
+2. ENVIRONMENT VARIABLES (.env on Server):
+-------------------------------------------
+PROJECT_NAME="Contact Book Agent Bot"
+PORT=8004
+PLATFORM_API_URL="http://localhost:8005/api/v1"
+PLATFORM_API_KEY="platform_secure_api_key_998877"
+ENVIRONMENT="production"
+MONGODB_URL="mongodb+srv://dilushaolaboduwa3_db_user:LJ06yJuoG5wnNpIQ@cluster0.mcyxj4n.mongodb.net/?appName=Cluster0"
+DATABASE_NAME="chat_bot_db"
+LLM_PROVIDER="groq"
+LLM_MODEL="llama-3.3-70b-versatile"
+GROQ_API_KEY="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"
+MUDRAID_API_KEY_ID=muid_kid_cc213df52835e52b4e06b12c909fbfc0
+MUDRAID_SECRET=muid_sk_66QYPm2TJrDiRkGIeOqj5_PFRkuASHXUzYJjJXZcBdo
+
+3. RECENT CODE & DEPENDENCY CHANGES:
+------------------------------------
+- Updated requirements.txt to include:
+  * pydantic-settings>=2.0.0
+  * python-dotenv>=1.0.0
+  * motor>=3.3.0
+  * pymongo>=4.5.0
+- Configured platform_client.py to fall back to HTTP calls if MudraID SDK is absent.
+- Set up chat_repo and mongo database connections.
+
+4. SERVER DEPLOYMENT COMMANDS:
+------------------------------
+Location on Server: /home/ubuntu/my-projects/contact-book-bot
+
+# Activate Environment:
+source .venv/bin/activate
+
+# Start Background Process:
+nohup .venv/bin/uvicorn app.main:app --host 0.0.0.0 --port 8004 > bot.log 2>&1 &
+
+# View Logs:
+cat /home/ubuntu/my-projects/contact-book-bot/bot.log
+
+5. LIVE PUBLIC ENDPOINTS:
+------------------------
+Interactive Swagger Docs: http://13.235.48.164:8004/docs
+API Base URL: http://13.235.48.164:8004/api/v1
+====================================================================
