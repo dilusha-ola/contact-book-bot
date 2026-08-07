@@ -5,8 +5,8 @@ class Settings(BaseSettings):
 
     PROJECT_NAME: str = "Contact Book Agent Bot"
     API_V1_STR: str = "/api/v1"
-    PORT: int = 8001
-    PLATFORM_API_URL: str = "http://localhost:8000/api/v1"
+    PORT: int = 8004
+    PLATFORM_API_URL: str = "https://dilushaplatform.mudraidtesting.online/api/v1"
     PLATFORM_API_KEY: str = ""
     ENVIRONMENT: str = "development"
     MONGODB_URL: str = ""

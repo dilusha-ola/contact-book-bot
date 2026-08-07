@@ -25,10 +25,9 @@ class PlatformClient:
                 logger.warning(f"Could not initialize MudraID Agent ({e}). Falling back to standard HTTP calls.")
 
     def _get_headers(self) -> dict:
-        headers = {}
-        if settings.PLATFORM_API_KEY:
-            headers["X-API-Key"] = settings.PLATFORM_API_KEY
-        return headers
+        # No fixed X-API-Key header sent from the bot side.
+        # MudraID Agent SDK manages authorization via Bearer tokens automatically.
+        return {}
 
     # Personal Contact Operations
     async def get_all_contacts(
