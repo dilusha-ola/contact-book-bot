@@ -5,7 +5,16 @@ from app.core.config import settings
 
 try:
     # pyrefly: ignore [missing-import]
-    from mudraid import Agent
+    from mudraid import (
+        Agent,
+        MudraIDConfigError,
+        MudraIDAuthError,
+        MudraIDRevokedError,
+        MudraIDPlatformNotRegisteredError,
+        MudraIDScopeError,
+        MudraIDNetworkError,
+        MudraIDError,
+    )
     _HAS_MUDRAID = True
 except ImportError:
     _HAS_MUDRAID = False
@@ -22,12 +31,112 @@ class PlatformClient:
                 self.agent = Agent()
                 logger.info(f"MudraID Agent initialized successfully (Key ID: {self.agent.api_key_id})")
             except Exception as e:
-                logger.warning(f"Could not initialize MudraID Agent ({e}). Falling back to standard HTTP calls.")
+                self._handle_exception(e, "Agent Initialization")
 
     def _get_headers(self) -> dict:
         # No fixed X-API-Key header sent from the bot side.
         # MudraID Agent SDK manages authorization via Bearer tokens automatically.
         return {}
+
+    def _handle_exception(self, e: Exception, operation: str):
+        if _HAS_MUDRAID and isinstance(e, MudraIDError):
+            if isinstance(e, MudraIDConfigError):
+                logger.error(
+                    f"\n==================== MudraID Agent Error ====================\n"
+                    f" Error Type   : MudraIDConfigError\n"
+                    f" Operation    : {operation}\n"
+                    f" What it means: Credentials missing or blank.\n"
+                    f" How to fix   : Check MUDRAID_API_KEY_ID and MUDRAID_SECRET are set in .env or system environment.\n"
+                    f"=================================================================\n"
+                )
+            elif isinstance(e, MudraIDAuthError):
+                logger.error(
+                    f"\n==================== MudraID Agent Error ====================\n"
+                    f" Error Type   : MudraIDAuthError\n"
+                    f" Operation    : {operation}\n"
+                    f" What it means: MudraID rejected the credentials.\n"
+                    f" How to fix   : The key id / secret pair is wrong — rotate or re-check in MudraID portal.\n"
+                    f"=================================================================\n"
+                )
+            elif isinstance(e, MudraIDRevokedError):
+                logger.error(
+                    f"\n==================== MudraID Agent Error ====================\n"
+                    f" Error Type   : MudraIDRevokedError\n"
+                    f" Operation    : {operation}\n"
+                    f" What it means: The agent is inactive, or lacks platform/scope access.\n"
+                    f" How to fix   : Check the agent's status and grants in the MudraID portal.\n"
+                    f"=================================================================\n"
+                )
+            elif isinstance(e, MudraIDPlatformNotRegisteredError):
+                logger.error(
+                    f"\n==================== MudraID Agent Error ====================\n"
+                    f" Error Type   : MudraIDPlatformNotRegisteredError\n"
+                    f" Operation    : {operation}\n"
+                    f" What it means: The host you called isn't a platform this agent is registered with.\n"
+                    f" How to fix   : Register the agent for that platform, or check PLATFORM_API_URL in .env.\n"
+                    f"=================================================================\n"
+                )
+            elif isinstance(e, MudraIDScopeError):
+                logger.error(
+                    f"\n==================== MudraID Agent Error ====================\n"
+                    f" Error Type   : MudraIDScopeError\n"
+                    f" Operation    : {operation}\n"
+                    f" What it means: Insufficient permissions/scopes granted to this agent.\n"
+                    f" How to fix   : Request/grant required scopes for the agent in MudraID portal.\n"
+                    f"=================================================================\n"
+                )
+            elif isinstance(e, MudraIDNetworkError):
+                logger.error(
+                    f"\n==================== MudraID Agent Error ====================\n"
+                    f" Error Type   : MudraIDNetworkError\n"
+                    f" Operation    : {operation}\n"
+                    f" What it means: Could not connect to MudraID servers.\n"
+                    f" How to fix   : Check network connection or verify MUDRAID_BASE_URL setting.\n"
+                    f"=================================================================\n"
+                )
+            else:
+                logger.error(f"❌ MudraID Error during {operation}: {e}")
+        else:
+            logger.error(f"❌ Failed to execute {operation} at {self.base_url}: {e}")
+
+    def _handle_response_error(self, res, operation: str):
+        status_code = res.status_code
+        error_code = "UNKNOWN"
+        what_it_means = f"Platform API returned error {status_code}"
+        fix = "Inspect platform server logs for details."
+
+        try:
+            data = res.json()
+            error_code = data.get("error_code", "UNKNOWN")
+            if "what_it_means" in data:
+                what_it_means = data["what_it_means"]
+            if "fix" in data:
+                fix = data["fix"]
+        except Exception:
+            pass
+
+        if error_code == "WRONG_AUDIENCE" or status_code == 403:
+            what_it_means = "Your YAML's platform_id doesn't match what MudraID issued."
+            fix = "Re-export mudraid_scopes.yaml from the portal and redeploy."
+        elif error_code == "MIDDLEWARE_NOT_READY" or status_code == 500:
+            what_it_means = "The YAML couldn't be loaded or parsed on the platform server."
+            fix = "Fix the scopes.yaml file; the next request recovers without a restart."
+        elif error_code == "JWKS_UNAVAILABLE":
+            what_it_means = "The platform middleware couldn't reach MudraID's keys."
+            fix = "Transient network issue to MudraID; check connectivity on platform server."
+        elif status_code == 404:
+            what_it_means = "A route unexpectedly 404s (it has no rule in the YAML, or is marked skip)."
+            fix = "Add a rule for this route in mudraid_scopes.yaml on the platform server."
+
+        logger.error(
+            f"\n==================== MudraID Platform Response Error ====================\n"
+            f" Operation    : {operation}\n"
+            f" Status Code  : {status_code}\n"
+            f" Error Code   : {error_code}\n"
+            f" What it means: {what_it_means}\n"
+            f" How to fix   : {fix}\n"
+            f"=========================================================================\n"
+        )
 
     # Personal Contact Operations
     async def get_all_contacts(
@@ -46,17 +155,17 @@ class PlatformClient:
                 res = self.agent.get(f"{self.base_url}/contacts", params=params)
                 if res.status_code == 200:
                     return res.json()
-                logger.error(f"Platform API error (MudraID Agent): {res.status_code} - {res.text}")
+                self._handle_response_error(res, "Get All Contacts")
                 return []
             else:
                 async with httpx.AsyncClient(timeout=15.0, headers=self._get_headers()) as client:
                     res = await client.get(f"{self.base_url}/contacts", params=params)
                     if res.status_code == 200:
                         return res.json()
-                    logger.error(f"Platform API error: {res.status_code} - {res.text}")
+                    self._handle_response_error(res, "Get All Contacts")
                     return []
         except Exception as e:
-            logger.error(f"Failed to connect to Platform API at {self.base_url}: {e}")
+            self._handle_exception(e, "Get All Contacts")
             return []
 
     async def create_contact(
@@ -74,15 +183,17 @@ class PlatformClient:
                 res = self.agent.post(f"{self.base_url}/contacts", json=payload)
                 if res.status_code in (200, 201):
                     return res.json()
+                self._handle_response_error(res, "Create Contact")
                 return None
             else:
                 async with httpx.AsyncClient(timeout=15.0, headers=self._get_headers()) as client:
                     res = await client.post(f"{self.base_url}/contacts", json=payload)
                     if res.status_code in (200, 201):
                         return res.json()
+                    self._handle_response_error(res, "Create Contact")
                     return None
         except Exception as e:
-            logger.error(f"Error creating contact: {e}")
+            self._handle_exception(e, "Create Contact")
             return None
 
     async def update_contact(
@@ -104,28 +215,36 @@ class PlatformClient:
                 res = self.agent.put(f"{self.base_url}/contacts/{contact_id}", json=payload)
                 if res.status_code == 200:
                     return res.json()
+                self._handle_response_error(res, "Update Contact")
                 return None
             else:
                 async with httpx.AsyncClient(timeout=15.0, headers=self._get_headers()) as client:
                     res = await client.put(f"{self.base_url}/contacts/{contact_id}", json=payload)
                     if res.status_code == 200:
                         return res.json()
+                    self._handle_response_error(res, "Update Contact")
                     return None
         except Exception as e:
-            logger.error(f"Error updating contact #{contact_id}: {e}")
+            self._handle_exception(e, "Update Contact")
             return None
 
     async def delete_contact(self, contact_id: str) -> bool:
         try:
             if self.agent:
                 res = self.agent.delete(f"{self.base_url}/contacts/{contact_id}")
-                return res.status_code == 200
+                if res.status_code == 200:
+                    return True
+                self._handle_response_error(res, "Delete Contact")
+                return False
             else:
                 async with httpx.AsyncClient(timeout=15.0, headers=self._get_headers()) as client:
                     res = await client.delete(f"{self.base_url}/contacts/{contact_id}")
-                    return res.status_code == 200
+                    if res.status_code == 200:
+                        return True
+                    self._handle_response_error(res, "Delete Contact")
+                    return False
         except Exception as e:
-            logger.error(f"Error deleting contact #{contact_id}: {e}")
+            self._handle_exception(e, "Delete Contact")
             return False
 
     # Company Contact Operations
@@ -147,15 +266,17 @@ class PlatformClient:
                 res = self.agent.get(f"{self.base_url}/companies", params=params)
                 if res.status_code == 200:
                     return res.json()
+                self._handle_response_error(res, "Get All Companies")
                 return []
             else:
                 async with httpx.AsyncClient(timeout=15.0, headers=self._get_headers()) as client:
                     res = await client.get(f"{self.base_url}/companies", params=params)
                     if res.status_code == 200:
                         return res.json()
+                    self._handle_response_error(res, "Get All Companies")
                     return []
         except Exception as e:
-            logger.error(f"Failed to fetch companies: {e}")
+            self._handle_exception(e, "Get All Companies")
             return []
 
     async def create_company(
@@ -179,15 +300,17 @@ class PlatformClient:
                 res = self.agent.post(f"{self.base_url}/companies", json=payload)
                 if res.status_code in (200, 201):
                     return res.json()
+                self._handle_response_error(res, "Create Company")
                 return None
             else:
                 async with httpx.AsyncClient(timeout=15.0, headers=self._get_headers()) as client:
                     res = await client.post(f"{self.base_url}/companies", json=payload)
                     if res.status_code in (200, 201):
                         return res.json()
+                    self._handle_response_error(res, "Create Company")
                     return None
         except Exception as e:
-            logger.error(f"Error creating company: {e}")
+            self._handle_exception(e, "Create Company")
             return None
 
     async def update_company(
@@ -211,28 +334,36 @@ class PlatformClient:
                 res = self.agent.put(f"{self.base_url}/companies/{company_id}", json=payload)
                 if res.status_code == 200:
                     return res.json()
+                self._handle_response_error(res, "Update Company")
                 return None
             else:
                 async with httpx.AsyncClient(timeout=15.0, headers=self._get_headers()) as client:
                     res = await client.put(f"{self.base_url}/companies/{company_id}", json=payload)
                     if res.status_code == 200:
                         return res.json()
+                    self._handle_response_error(res, "Update Company")
                     return None
         except Exception as e:
-            logger.error(f"Error updating company #{company_id}: {e}")
+            self._handle_exception(e, "Update Company")
             return None
 
     async def delete_company(self, company_id: str) -> bool:
         try:
             if self.agent:
                 res = self.agent.delete(f"{self.base_url}/companies/{company_id}")
-                return res.status_code == 200
+                if res.status_code == 200:
+                    return True
+                self._handle_response_error(res, "Delete Company")
+                return False
             else:
                 async with httpx.AsyncClient(timeout=15.0, headers=self._get_headers()) as client:
                     res = await client.delete(f"{self.base_url}/companies/{company_id}")
-                    return res.status_code == 200
+                    if res.status_code == 200:
+                        return True
+                    self._handle_response_error(res, "Delete Company")
+                    return False
         except Exception as e:
-            logger.error(f"Error deleting company #{company_id}: {e}")
+            self._handle_exception(e, "Delete Company")
             return False
 
     async def get_stats(self) -> dict:
@@ -242,6 +373,10 @@ class PlatformClient:
                 comp_res = self.agent.get(f"{self.base_url}/companies/stats")
                 total_contacts = c_res.json().get("total_contacts", 0) if c_res.status_code == 200 else 0
                 total_companies = comp_res.json().get("total_companies", 0) if comp_res.status_code == 200 else 0
+                if c_res.status_code != 200:
+                    self._handle_response_error(c_res, "Get Stats (Contacts)")
+                if comp_res.status_code != 200:
+                    self._handle_response_error(comp_res, "Get Stats (Companies)")
                 return {"total_contacts": total_contacts, "total_companies": total_companies}
             else:
                 async with httpx.AsyncClient(timeout=15.0, headers=self._get_headers()) as client:
@@ -251,7 +386,7 @@ class PlatformClient:
                     total_companies = comp_res.json().get("total_companies", 0) if comp_res.status_code == 200 else 0
                     return {"total_contacts": total_contacts, "total_companies": total_companies}
         except Exception as e:
-            logger.error(f"Failed to fetch stats: {e}")
+            self._handle_exception(e, "Get Stats")
             return {"total_contacts": 0, "total_companies": 0}
 
 platform_client = PlatformClient()
