@@ -38,7 +38,7 @@ MUDRAID_SECRET=muid_sk_66QYPm2TJrDiRkGIeOqj5_PFRkuASHXUzYJjJXZcBdo
 
 4. SERVER DEPLOYMENT COMMANDS:
 ------------------------------
-Location on Server: /home/ubuntu/my-projects/contact-book-bot
+Location on Server: /home/ubuntu/dilusha/contact-book-bot
 
 # Activate Environment:
 source .venv/bin/activate
@@ -47,7 +47,7 @@ source .venv/bin/activate
 nohup .venv/bin/uvicorn app.main:app --host 0.0.0.0 --port 8004 > bot.log 2>&1 &
 
 # View Logs:
-cat /home/ubuntu/my-projects/contact-book-bot/bot.log
+cat /home/ubuntu/dilusha/contact-book-bot/bot.log
 
 5. LIVE PUBLIC ENDPOINTS:
 ------------------------
