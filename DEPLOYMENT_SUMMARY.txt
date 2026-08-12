@@ -2,6 +2,7 @@
 CONTACT BOOK AGENT BOT - DEPLOYMENT & CONFIGURATION SUMMARY
 ====================================================================
 Date Configured: 2026-08-06
+Last Updated: 2026-08-12
 Server IP: 13.235.48.164
 Assigned Port: 8004
 User: ubuntu
@@ -26,15 +27,14 @@ GROQ_API_KEY="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"
 MUDRAID_API_KEY_ID=muid_kid_cc213df52835e52b4e06b12c909fbfc0
 MUDRAID_SECRET=muid_sk_66QYPm2TJrDiRkGIeOqj5_PFRkuASHXUzYJjJXZcBdo
 
-3. RECENT CODE & DEPENDENCY CHANGES:
-------------------------------------
-- Updated requirements.txt to include:
-  * pydantic-settings>=2.0.0
-  * python-dotenv>=1.0.0
-  * motor>=3.3.0
-  * pymongo>=4.5.0
-- Configured platform_client.py to fall back to HTTP calls if MudraID SDK is absent.
-- Set up chat_repo and mongo database connections.
+3. RECENT CODE & DEPENDENCY CHANGES (2026-08-12):
+--------------------------------------------------
+- Upgraded MudraID Bot SDK to `mudraid-sdk[v2]==1.1.0`.
+- Added Test PyPI index (`https://test.pypi.org/simple/`) and standard PyPI fallback to `requirements.txt`.
+- Verified `PlatformClient` initialization with MudraID v2 Agent authentication.
+- Updated server working directory path to `/home/ubuntu/dilusha/contact-book-bot`.
+- Updated service startup command to `nohup python -m uvicorn app.main:app --host 0.0.0.0 --port 8004 > bot.log 2>&1 &`.
+- Confirmed live operation and log streaming via `bot.log`.
 
 4. SERVER DEPLOYMENT COMMANDS:
 ------------------------------
