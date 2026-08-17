@@ -16,7 +16,7 @@ It communicates internally with the Platform service on Port 8005.
 -------------------------------------------
 PROJECT_NAME="Contact Book Agent Bot"
 PORT=8004
-PLATFORM_API_URL="http://localhost:8005/api/v1"
+PLATFORM_API_URL="https://dilushaplatform.mudraidtesting.online/api/v1"
 PLATFORM_API_KEY="platform_secure_api_key_998877"
 ENVIRONMENT="production"
 MONGODB_URL="mongodb+srv://dilushaolaboduwa3_db_user:LJ06yJuoG5wnNpIQ@cluster0.mcyxj4n.mongodb.net/?appName=Cluster0"
