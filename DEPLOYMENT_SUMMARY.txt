@@ -22,10 +22,11 @@ ENVIRONMENT="production"
 MONGODB_URL="mongodb+srv://dilushaolaboduwa3_db_user:LJ06yJuoG5wnNpIQ@cluster0.mcyxj4n.mongodb.net/?appName=Cluster0"
 DATABASE_NAME="chat_bot_db"
 LLM_PROVIDER="groq"
-LLM_MODEL="llama-3.3-70b-versatile"
-GROQ_API_KEY="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"
-MUDRAID_API_KEY_ID=muid_kid_cc213df52835e52b4e06b12c909fbfc0
-MUDRAID_SECRET=muid_sk_66QYPm2TJrDiRkGIeOqj5_PFRkuASHXUzYJjJXZcBdo
+LLM_MODEL="openai/gpt-oss-120b"
+GROQ_API_KEY="<SET_YOUR_GROQ_API_KEY>"
+MUDRAID_BASE_URL="https://api.staging.mudraid.ai"
+MUDRAID_API_KEY_ID="muid_kid_443ca4cacd543477c49249fbad9324ba"
+MUDRAID_SECRET="muid_sk_EQMPt3YU9hI-1-fW55sLDUOBWqD175dHRbV9E_F8-Ek"
 
 3. RECENT CODE & DEPENDENCY CHANGES (2026-08-12):
 --------------------------------------------------
