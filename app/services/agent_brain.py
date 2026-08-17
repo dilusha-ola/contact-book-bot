@@ -1,7 +1,7 @@
 import json
 import logging
 import re
-from typing import Dict, Any
+from typing import Dict, Any, Optional, List
 from app.core.config import settings
 from app.core.system_prompt import SYSTEM_PROMPT
 from app.services.langchain_tools import ALL_TOOLS
@@ -69,7 +69,7 @@ class AgentBrain:
                     from langchain_groq import ChatGroq
                     llm = ChatGroq(
                         groq_api_key=settings.GROQ_API_KEY,
-                        model_name=settings.LLM_MODEL or "llama-3.3-70b-versatile",
+                        model_name=settings.LLM_MODEL or "openai/gpt-oss-120b",
                         temperature=0.1
                     )
                 except ImportError as ie:
@@ -139,6 +139,20 @@ class AgentBrain:
         fields = extract_fields(prompt)
         is_company = "company" in p
 
+        def check_error(obj: Any) -> Optional[Dict[str, Any]]:
+            if isinstance(obj, dict) and obj.get("error"):
+                err_type = obj.get("error_type", "Error")
+                op = obj.get("operation", "Operation")
+                means = obj.get("what_it_means", "An unexpected error occurred.")
+                fix = obj.get("how_to_fix", "Check configuration and logs.")
+                reply = (
+                    f"⚠️ **{err_type} encountered during {op}**\n\n"
+                    f"• **What it means:** {means}\n"
+                    f"• **How to fix:** {fix}"
+                )
+                return {"reply": reply, "action_type": "error", "data": obj}
+            return None
+
         # Out-of-Domain Guardrail Check (only for explicit non-contact subjects)
         out_of_domain_keywords = ["cricket", "cancer", "vehicle", "vehicles", "brand", "brands", "weather", "recipe", "movie", "capital of", "football", "basketball"]
         if any(k in p for k in out_of_domain_keywords):
@@ -155,7 +169,9 @@ class AgentBrain:
 
             if is_company:
                 companies = await platform_client.get_all_companies(query=clean_search or search_query)
-                if companies:
+                err = check_error(companies)
+                if err: return err
+                if isinstance(companies, list) and companies:
                     target = companies[0]
                     update_payload = {}
                     if fields.get("name") and fields["name"] != target["name"]: update_payload["name"] = fields["name"]
@@ -164,13 +180,19 @@ class AgentBrain:
                     if fields.get("location"): update_payload["location"] = fields["location"]
 
                     res = await platform_client.update_company(target["id"], **update_payload)
+                    err = check_error(res)
+                    if err: return err
                     if res:
                         return {"reply": f"Company contact 🏢 **{res['name']}** (`{res['company_email']}`) has been updated successfully with new phone `{res['phone']}`.", "action_type": "update", "data": res}
             else:
                 contacts = await platform_client.get_all_contacts(query=clean_search or search_query)
+                err = check_error(contacts)
+                if err: return err
                 if not contacts and fields.get("target_email"):
                     contacts = await platform_client.get_all_contacts(email=fields["target_email"])
-                if contacts:
+                    err = check_error(contacts)
+                    if err: return err
+                if isinstance(contacts, list) and contacts:
                     target = contacts[0]
                     update_payload = {}
                     if fields.get("phone"): update_payload["phone"] = fields["phone"]
@@ -178,6 +200,8 @@ class AgentBrain:
                     if fields.get("email") and fields["email"].lower() != target["email"].lower(): update_payload["email"] = fields["email"]
 
                     res = await platform_client.update_contact(target["id"], **update_payload)
+                    err = check_error(res)
+                    if err: return err
                     if res:
                         return {"reply": f"Personal contact 👤 **{res['name']}** (`{res['email']}`) has been updated successfully.", "action_type": "update", "data": res}
 
@@ -191,6 +215,8 @@ class AgentBrain:
                 phone = fields.get("phone") or "0112345678"
                 location = fields.get("location") or "Colombo"
                 res = await platform_client.create_company(name=name, company_email=comp_email, phone=phone, location=location)
+                err = check_error(res)
+                if err: return err
                 if res:
                     return {"reply": f"Company contact 🏢 **{res['name']}** (`{res['company_email']}`) has been created successfully.", "action_type": "create", "data": res}
             else:
@@ -198,6 +224,8 @@ class AgentBrain:
                 email = fields.get("email") or "contact@example.com"
                 phone = fields.get("phone") or "0770000000"
                 res = await platform_client.create_contact(name=name, email=email, phone=phone)
+                err = check_error(res)
+                if err: return err
                 if res:
                     return {"reply": f"Personal contact 👤 **{res['name']}** (`{res['email']}`) has been created successfully.", "action_type": "create", "data": res}
 
@@ -206,18 +234,28 @@ class AgentBrain:
             search_query = fields.get("target_email") or fields.get("target_name") or fields.get("email") or fields.get("name") or prompt
             if is_company:
                 companies = await platform_client.get_all_companies(query=search_query)
-                if companies:
+                err = check_error(companies)
+                if err: return err
+                if isinstance(companies, list) and companies:
                     c = companies[0]
                     del_ok = await platform_client.delete_company(c["id"])
+                    err = check_error(del_ok)
+                    if err: return err
                     if del_ok:
                         return {"reply": f"The company contact 🏢 with name **{c['name']}** and email `{c['company_email']}` has been successfully deleted.", "action_type": "delete", "data": c}
             else:
                 contacts = await platform_client.get_all_contacts(query=search_query)
+                err = check_error(contacts)
+                if err: return err
                 if not contacts and fields.get("target_email"):
                     contacts = await platform_client.get_all_contacts(email=fields["target_email"])
-                if contacts:
+                    err = check_error(contacts)
+                    if err: return err
+                if isinstance(contacts, list) and contacts:
                     c = contacts[0]
                     del_ok = await platform_client.delete_contact(c["id"])
+                    err = check_error(del_ok)
+                    if err: return err
                     if del_ok:
                         return {"reply": f"The personal contact 👤 with name **{c['name']}** and email `{c['email']}` has been successfully deleted.", "action_type": "delete", "data": c}
             return {"reply": "No matching contact found to delete.", "action_type": "delete", "data": None}
@@ -225,6 +263,8 @@ class AgentBrain:
         # 4. STATS & UNIFIED SEARCH Handling
         if action == "stats" or "stat" in p or "summary" in p or "how many" in p or "breakdown" in p:
             stats = await platform_client.get_stats()
+            err = check_error(stats)
+            if err: return err
             reply = f"📊 **Contact Platform Statistics:**\n" \
                     f"• Total Personal Contacts: **{stats.get('total_contacts', 0)}**\n" \
                     f"• Total Company Contacts: **{stats.get('total_companies', 0)}**"
@@ -234,14 +274,19 @@ class AgentBrain:
         search_term = clean_query or prompt
 
         companies = await platform_client.get_all_companies(query=search_term)
+        err = check_error(companies)
+        if err: return err
+
         contacts = await platform_client.get_all_contacts(query=search_term)
+        err = check_error(contacts)
+        if err: return err
 
         if companies or contacts:
             lines = []
-            if contacts:
+            if isinstance(contacts, list) and contacts:
                 lines.append("👤 **Personal Contacts:**")
                 lines.extend([f"• **{c['name']}** — 📧 `{c['email']}` | 📞 `{c['phone']}`" for c in contacts])
-            if companies:
+            if isinstance(companies, list) and companies:
                 if lines: lines.append("")
                 lines.append("🏢 **Company Contacts:**")
                 lines.extend([f"• **{c['name']}** ({c['location']}) — 📧 `{c['company_email']}` | 📞 `{c['phone']}`" for c in companies])

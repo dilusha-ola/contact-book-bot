@@ -36,6 +36,8 @@ async def create_contact_tool(
         phone=phone,
         notes=notes
     )
+    if isinstance(result, dict) and result.get("error"):
+        return json.dumps(result)
     if result:
         return json.dumps({"status": "success", "contact": result})
     return json.dumps({"status": "error", "message": "Failed to create contact."})
@@ -58,6 +60,8 @@ async def update_contact_tool(
         phone=phone,
         notes=notes
     )
+    if isinstance(result, dict) and result.get("error"):
+        return json.dumps(result)
     if result:
         return json.dumps({"status": "success", "contact": result})
     return json.dumps({"status": "error", "message": f"Failed to update contact {contact_id}."})
@@ -68,6 +72,8 @@ async def delete_contact_tool(contact_id: str) -> str:
     Delete a personal contact by ID.
     """
     success = await platform_client.delete_contact(contact_id)
+    if isinstance(success, dict) and success.get("error"):
+        return json.dumps(success)
     if success:
         return json.dumps({"status": "success", "message": f"Contact {contact_id} deleted."})
     return json.dumps({"status": "error", "message": f"Failed to delete contact {contact_id}."})
@@ -109,6 +115,8 @@ async def create_company_tool(
         location=location,
         notes=notes
     )
+    if isinstance(result, dict) and result.get("error"):
+        return json.dumps(result)
     if result:
         return json.dumps({"status": "success", "company": result})
     return json.dumps({"status": "error", "message": "Failed to create company contact."})
@@ -133,6 +141,8 @@ async def update_company_tool(
         location=location,
         notes=notes
     )
+    if isinstance(result, dict) and result.get("error"):
+        return json.dumps(result)
     if result:
         return json.dumps({"status": "success", "company": result})
     return json.dumps({"status": "error", "message": f"Failed to update company {company_id}."})
@@ -143,6 +153,8 @@ async def delete_company_tool(company_id: str) -> str:
     Delete a company contact entry by ID.
     """
     success = await platform_client.delete_company(company_id)
+    if isinstance(success, dict) and success.get("error"):
+        return json.dumps(success)
     if success:
         return json.dumps({"status": "success", "message": f"Company contact {company_id} deleted."})
     return json.dumps({"status": "error", "message": f"Failed to delete company {company_id}."})

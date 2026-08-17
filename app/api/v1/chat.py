@@ -3,9 +3,15 @@ from fastapi import APIRouter, HTTPException, status
 from typing import List, Optional
 from app.schemas.chat import ChatRequest, ChatResponse, SessionResponse, UpdateSessionRequest, ChatMessageResponse
 from app.services.agent_brain import agent_brain
+from app.services.platform_client import platform_client
 from app.repositories.chat_repo import chat_repo
 
 router = APIRouter(prefix="/chat", tags=["Agent Chat & History APIs"])
+
+@router.get("/token", summary="Inspect Active MudraID Bearer Access Token")
+async def get_mudraid_token():
+    """Retrieve and inspect the current signed MudraID Bearer Access Token negotiated with MudraID."""
+    return platform_client.get_active_token()
 
 @router.post("", response_model=ChatResponse, status_code=status.HTTP_200_OK, summary="Process Agent Chat Prompt")
 async def chat_with_agent(payload: ChatRequest):

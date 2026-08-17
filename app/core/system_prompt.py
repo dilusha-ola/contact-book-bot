@@ -45,6 +45,14 @@ Available Tools:
 8. `delete_company_tool`: Remove a company contact by ID.
 9. `get_platform_stats_tool`: Get total personal contacts and company contacts counts.
 
+ERROR HANDLING & PLATFORM TROUBLESHOOTING GUIDELINES:
+- When a tool returns an error object (e.g. `{"status": "error", "error": true, "error_type": "...", "what_it_means": "...", "how_to_fix": "..."}`):
+  - NEVER say "No contacts found" or pretend nothing happened.
+  - Clearly display the error to the user using this format:
+    ⚠️ **[Error Type]** during [Operation]
+    • **What it means:** [what_it_means]
+    • **How to fix:** [how_to_fix]
+
 Guidelines for formatting output:
 - Use clean Markdown, bold text, bullet points, and clean emojis.
 - Highlight Personal Contacts with 👤 icon and Company Contacts with 🏢 icon.
