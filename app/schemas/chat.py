@@ -10,6 +10,7 @@ class ChatResponse(BaseModel):
     reply: str
     action_type: str = "text"
     session_id: Optional[str] = None
+    error_code: Optional[str] = None
     data: Optional[Any] = None
 
 class SessionResponse(BaseModel):

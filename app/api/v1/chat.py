@@ -30,9 +30,10 @@ async def chat_with_agent(payload: ChatRequest):
 
     return ChatResponse(
         reply=reply,
-        action_type=result["action_type"],
+        action_type=result.get("action_type", "text"),
         session_id=session_id,
-        data=result["data"]
+        error_code=result.get("error_code"),
+        data=result.get("data")
     )
 
 @router.get("/sessions", response_model=List[SessionResponse], summary="List Chat Sessions")

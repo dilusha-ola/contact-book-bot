@@ -115,6 +115,25 @@ class AgentBrain:
             self.agent = None
 
     async def process_prompt(self, prompt: str, action: str = None) -> Dict[str, Any]:
+        # 1. Fast-path: Direct return if MudraID failed to initialize (no need to call LLM)
+        if platform_client.init_error:
+            err = platform_client.init_error
+            err_type = err.get("error_type", "MudraIDConfigError")
+            op = err.get("operation", "Agent Initialization")
+            means = err.get("what_it_means", "Credentials missing or blank.")
+            fix = err.get("how_to_fix", "Check MUDRAID_API_KEY_ID and MUDRAID_SECRET are set in .env.")
+            reply = (
+                f"⚠️ **{err_type}** during {op}\n\n"
+                f"• **What it means:** {means}\n"
+                f"• **How to fix:** {fix}"
+            )
+            return {
+                "reply": reply,
+                "action_type": "error",
+                "error_code": err_type,
+                "data": err
+            }
+
         if not self.agent:
             self._init_llm_agent()
 
@@ -123,9 +142,28 @@ class AgentBrain:
                 res = await self.agent.ainvoke({"messages": [("user", prompt)]})
                 messages = res.get("messages", [])
                 output_text = messages[-1].content if messages else ""
+
+                # Check if any tool reported a MudraID / Platform error
+                for msg in messages:
+                    content = getattr(msg, "content", "")
+                    if isinstance(content, str) and ('"error": true' in content or '"error_type":' in content):
+                        try:
+                            err_data = json.loads(content)
+                            if isinstance(err_data, dict) and err_data.get("error"):
+                                err_type = err_data.get("error_type", "Error")
+                                return {
+                                    "reply": output_text,
+                                    "action_type": "error",
+                                    "error_code": err_type,
+                                    "data": err_data
+                                }
+                        except Exception:
+                            pass
+
                 return {
                     "reply": output_text,
                     "action_type": "llm_agent",
+                    "error_code": None,
                     "data": None
                 }
             except Exception as e:
@@ -150,7 +188,12 @@ class AgentBrain:
                     f"• **What it means:** {means}\n"
                     f"• **How to fix:** {fix}"
                 )
-                return {"reply": reply, "action_type": "error", "data": obj}
+                return {
+                    "reply": reply,
+                    "action_type": "error",
+                    "error_code": err_type,
+                    "data": obj
+                }
             return None
 
         # Out-of-Domain Guardrail Check (only for explicit non-contact subjects)
